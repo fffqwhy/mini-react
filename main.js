@@ -117,7 +117,13 @@ function createElement(type, props, ...children) {
         type,
         props: {
             ...props,
-            children,
+            children:children.map((child)=>{
+                if(typeof child==="string"){
+                    return createTextNode(child);
+                }else{
+                    return child;
+                }
+            }),
         }
     }
 }
@@ -146,5 +152,5 @@ function render(ele, container) {
 }
 const TextEle = createTextNode("render-text");
 const TextEle2 = createTextNode("render-text22");
-const App = createElement("div", { id: "app", class: "app" }, TextEle,TextEle2)
+const App = createElement("div", { id: "app", class: "app" }, TextEle,TextEle2,"justString");
 render(App,document.getElementById("root"));
