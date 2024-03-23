@@ -1,4 +1,4 @@
-import React from './core/React.js';
+import ReactMini from './core/React.js';
 
 // const App = React.createElement("div", { id: "app", class: "app" }, 'vite-render', "justString");
 const App = <div>
