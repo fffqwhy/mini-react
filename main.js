@@ -91,66 +91,86 @@
  * 3、将生成的标签渲染
  */
 
-const TEXT_TYPE = "TEXT_ELEMENT";
+// const TEXT_TYPE = "TEXT_ELEMENT";
 /**
  * @description 生成含有nodeValue 的数据结构
  * @param  text 文本 
  * @returns 含有nodeValue 的数据结构
  */
-function createTextNode(text) {
-    return {
-        type: TEXT_TYPE,
-        props: {
-            nodeValue: text,
-            children: []
-        }
-    }
-}
+// function createTextNode(text) {
+//     return {
+//         type: TEXT_TYPE,
+//         props: {
+//             nodeValue: text,
+//             children: []
+//         }
+//     }
+// }
 /**
  * @description react 的createElement；
  * @param {标签类型} type 
  * @param {标签的属性} props 
  * @param  {...any} childern 
  */
-function createElement(type, props, ...children) {
-    return {
-        type,
-        props: {
-            ...props,
-            children:children.map((child)=>{
-                if(typeof child==="string"){
-                    return createTextNode(child);
-                }else{
-                    return child;
-                }
-            }),
-        }
-    }
-}
+// function createElement(type, props, ...children) {
+//     return {
+//         type,
+//         props: {
+//             ...props,
+//             children: children.map((child) => {
+//                 if (typeof child === "string") {
+//                     return createTextNode(child);
+//                 } else {
+//                     return child;
+//                 }
+//             }),
+//         }
+//     }
+// }
 /**
  * 渲染函数
  * @param {*} ele 数据结构 
  * @param {*} container root 
  */
-function render(ele, container) {
-    console.log(ele,container);
-    const dom = ele.type === TEXT_TYPE
-        ? document.createTextNode("")
-        : document.createElement(ele.type);
-    // 将除了children的属性赋给生成的dom
-    Object.keys(ele.props).forEach((propsKey)=>{
-        if(propsKey!=="children"){
-            dom[propsKey] = ele.props[propsKey];
-        }
-    })
-    // 如果有子节点，处理子节点
-    const children = ele.props.children||[];
-    children.forEach((child)=>{
-        render(child,dom);
-    })
-    container.append(dom);
-}
-const TextEle = createTextNode("render-text");
-const TextEle2 = createTextNode("render-text22");
-const App = createElement("div", { id: "app", class: "app" }, TextEle,TextEle2,"justString");
-render(App,document.getElementById("root"));
+// function render(ele, container) {
+//     console.log(ele, container);
+//     const dom = ele.type === TEXT_TYPE
+//         ? document.createTextNode("")
+//         : document.createElement(ele.type);
+//     // 将除了children的属性赋给生成的dom
+//     Object.keys(ele.props).forEach((propsKey) => {
+//         if (propsKey !== "children") {
+//             dom[propsKey] = ele.props[propsKey];
+//         }
+//     })
+//     // 如果有子节点，处理子节点
+//     const children = ele.props.children || [];
+//     children.forEach((child) => {
+//         render(child, dom);
+//     })
+//     container.append(dom);
+// }
+
+// const ReactDom = {
+//     createRoot(container) {
+//         return {
+//             render(App) {
+//                 render(App, container)
+//             }
+//         }
+//     }
+// };
+// const TextEle = createTextNode("render-text");
+// const TextEle2 = createTextNode("render-text22");
+// const App = createElement("div", { id: "app", class: "app" }, TextEle, TextEle2, "justString");
+// ReactDom.createRoot(document.getElementById("root")).render(App); //02
+
+// render(App, document.getElementById("root")); //01
+
+
+//! finnal version
+import React from './core/React.js';
+import ReactDom from './core/ReactDom.js';
+
+const App = React.createElement("div", { id: "app", class: "app" }, 'render-text', 'render-text2', "justString");
+ReactDom.createRoot(document.getElementById("root")).render(App); 
