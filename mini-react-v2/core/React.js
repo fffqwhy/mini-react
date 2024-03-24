@@ -1,4 +1,5 @@
 const TEXT_TYPE = "TEXT_ELEMENT";
+let nextWorkUnit = null;
 /**
  * @description 生成含有nodeValue 的数据结构
  * @param  text 文本 
@@ -42,22 +43,69 @@ function createElement(type, props, ...children) {
  */
 function render(ele, container) {
     console.log(ele, container);
-    const dom = ele.type === TEXT_TYPE
-        ? document.createTextNode("")
-        : document.createElement(ele.type);
-    // 将除了children的属性赋给生成的dom
-    Object.keys(ele.props).forEach((propsKey) => {
+    nextWorkUnit = {
+        dom: container,
+        props: {children:[ele]}
+    };
+}
+function workloop(deadline) {
+    let shouleYield = false;
+    while (!shouleYield && nextWorkUnit) {
+        nextWorkUnit = performWorkUnit(nextWorkUnit);
+        shouleYield = deadline.timeRemaining() < 1;
+    }
+    requestIdleCallback(workloop);
+}
+
+function createDom(fiber){
+    return fiber.type === TEXT_TYPE
+    ? document.createTextNode("")
+    : document.createElement(fiber.type);
+}
+function updateProps(fiber){
+    Object.keys(fiber.props).forEach((propsKey) => {
         if (propsKey !== "children") {
-            dom[propsKey] = ele.props[propsKey];
+            fiber.dom[propsKey] = fiber.props[propsKey];
         }
     })
-    // 如果有子节点，处理子节点
-    const children = ele.props.children || [];
-    children.forEach((child) => {
-        render(child, dom);
-    })
-    container.append(dom);
 }
+function generateChildren(fiber){
+    const children = fiber.props.children || [];
+    let preChild = null;
+    children.forEach((child, index) => {
+        const newWork = {
+            type: child.type,
+            props: child.props,
+            child: null,
+            parent: fiber,
+            sibling: null,
+            dom: null,
+        }
+        if (index === 0) {
+            fiber.child = newWork;
+        } else {
+            preChild.sibling = newWork;
+        }
+        preChild = newWork;
+    })
+}
+function performWorkUnit(fiber) {
+    if (!fiber?.dom) {
+        const dom = (fiber.dom = createDom(fiber));
+        fiber.parent.dom.append(dom);
+        updateProps(fiber);
+    }
+    generateChildren(fiber);
+    if(fiber.child){
+        return fiber.child;
+    }
+    if(fiber.sibling){
+        return fiber.sibling;
+    }
+    return fiber.parent?.sibling;
+}
+requestIdleCallback(workloop);
+
 export default {
     createElement,
     render
