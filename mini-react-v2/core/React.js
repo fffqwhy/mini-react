@@ -102,7 +102,16 @@ function performWorkUnit(fiber) {
     if(fiber.sibling){
         return fiber.sibling;
     }
-    return fiber.parent?.sibling;
+    return getParentSibling(fiber);
+}
+function getParentSibling(fiber){
+    if(fiber.parent?.sibling){
+        return  fiber.parent?.sibling;
+    }
+    else if(fiber.parent){
+        return getParentSibling(fiber.parent);
+    }
+    return undefined;
 }
 requestIdleCallback(workloop);
 
