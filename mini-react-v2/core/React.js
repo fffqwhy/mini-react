@@ -1,5 +1,6 @@
 const TEXT_TYPE = "TEXT_ELEMENT";
 let nextWorkUnit = null;
+let root = null;
 /**
  * @description 生成含有nodeValue 的数据结构
  * @param  text 文本 
@@ -45,8 +46,9 @@ function render(ele, container) {
     console.log(ele, container);
     nextWorkUnit = {
         dom: container,
-        props: {children:[ele]}
+        props: { children: [ele] }
     };
+    root = nextWorkUnit;
 }
 function workloop(deadline) {
     let shouleYield = false;
@@ -54,22 +56,36 @@ function workloop(deadline) {
         nextWorkUnit = performWorkUnit(nextWorkUnit);
         shouleYield = deadline.timeRemaining() < 1;
     }
+    // 构建结束且有渲染的内容
+    if (!nextWorkUnit && root) {
+        commitRoot(root.child);
+    }
     requestIdleCallback(workloop);
 }
+function commitRoot(fiber) {
 
-function createDom(fiber){
-    return fiber.type === TEXT_TYPE
-    ? document.createTextNode("")
-    : document.createElement(fiber.type);
+    commitFiber(fiber);
+    root = null;
 }
-function updateProps(fiber){
+function commitFiber(fiber){
+    if(!fiber)return;
+    fiber.parent.dom.append(fiber.dom);
+    commitFiber(fiber.child);
+    commitFiber(fiber.sibling);
+}
+function createDom(fiber) {
+    return fiber.type === TEXT_TYPE
+        ? document.createTextNode("")
+        : document.createElement(fiber.type);
+}
+function updateProps(fiber) {
     Object.keys(fiber.props).forEach((propsKey) => {
         if (propsKey !== "children") {
             fiber.dom[propsKey] = fiber.props[propsKey];
         }
     })
 }
-function generateChildren(fiber){
+function generateChildren(fiber) {
     const children = fiber.props.children || [];
     let preChild = null;
     children.forEach((child, index) => {
@@ -92,23 +108,23 @@ function generateChildren(fiber){
 function performWorkUnit(fiber) {
     if (!fiber?.dom) {
         const dom = (fiber.dom = createDom(fiber));
-        fiber.parent.dom.append(dom);
+        // fiber.parent.dom.append(dom);
         updateProps(fiber);
     }
     generateChildren(fiber);
-    if(fiber.child){
+    if (fiber.child) {
         return fiber.child;
     }
-    if(fiber.sibling){
+    if (fiber.sibling) {
         return fiber.sibling;
     }
     return getParentSibling(fiber);
 }
-function getParentSibling(fiber){
-    if(fiber.parent?.sibling){
-        return  fiber.parent?.sibling;
+function getParentSibling(fiber) {
+    if (fiber.parent?.sibling) {
+        return fiber.parent?.sibling;
     }
-    else if(fiber.parent){
+    else if (fiber.parent) {
         return getParentSibling(fiber.parent);
     }
     return undefined;
