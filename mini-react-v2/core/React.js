@@ -27,7 +27,9 @@ function createElement(type, props, ...children) {
         props: {
             ...props,
             children: children.map((child) => {
-                if (typeof child === "string") {
+
+                const istextType = typeof child==="string"||typeof child==="number"; 
+                if (istextType) {
                     return createTextNode(child);
                 } else {
                     return child;
@@ -67,12 +69,22 @@ function commitRoot(fiber) {
     commitFiber(fiber);
     root = null;
 }
-function commitFiber(fiber){
-    if(!fiber)return;
-    fiber.parent.dom.append(fiber.dom);
+function commitFiber(fiber) {
+    if (!fiber) return;
+    const parentDom = findParentDom(fiber.parent);
+    if(fiber.dom){
+        parentDom.append(fiber.dom);
+    }
     commitFiber(fiber.child);
     commitFiber(fiber.sibling);
 }
+function findParentDom(parentFiber){
+    if(!parentFiber){
+        return null;
+    }
+    if(parentFiber.dom)return parentFiber.dom;
+    return findParentDom(parentFiber.parent);
+} 
 function createDom(fiber) {
     return fiber.type === TEXT_TYPE
         ? document.createTextNode("")
@@ -85,8 +97,8 @@ function updateProps(fiber) {
         }
     })
 }
-function generateChildren(fiber) {
-    const children = fiber.props.children || [];
+function generateChildren(fiber,childern) {
+    const children = childern || fiber.props.children || [];
     let preChild = null;
     children.forEach((child, index) => {
         const newWork = {
@@ -106,12 +118,16 @@ function generateChildren(fiber) {
     })
 }
 function performWorkUnit(fiber) {
-    if (!fiber?.dom) {
-        const dom = (fiber.dom = createDom(fiber));
-        // fiber.parent.dom.append(dom);
-        updateProps(fiber);
+    console.log(fiber);
+    const fiberTypeIsFunction = typeof fiber.type === "function";
+    if(!fiberTypeIsFunction){
+        if (!fiber?.dom) {
+            fiber.dom = createDom(fiber);
+            updateProps(fiber);
+        }
     }
-    generateChildren(fiber);
+    const childern = fiberTypeIsFunction ? [fiber.type(fiber.props)] : fiber.props.childern;
+    generateChildren(fiber,childern);
     if (fiber.child) {
         return fiber.child;
     }
@@ -120,6 +136,7 @@ function performWorkUnit(fiber) {
     }
     return getParentSibling(fiber);
 }
+
 function getParentSibling(fiber) {
     if (fiber.parent?.sibling) {
         return fiber.parent?.sibling;
