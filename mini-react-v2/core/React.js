@@ -50,8 +50,10 @@ function render(ele, container) {
         dom: container,
         props: { children: [ele] }
     };
+    // 保留一个根节点用来统一提交
     root = nextWorkUnit;
 }
+
 function workloop(deadline) {
     let shouleYield = false;
     while (!shouleYield && nextWorkUnit) {
@@ -65,7 +67,6 @@ function workloop(deadline) {
     requestIdleCallback(workloop);
 }
 function commitRoot(fiber) {
-
     commitFiber(fiber);
     root = null;
 }
@@ -109,8 +110,9 @@ function generateChildren(fiber,childern) {
             sibling: null,
             dom: null,
         }
+        // 将dom树结构的原始数据构造成渲染fiber单元
         if (index === 0) {
-            fiber.child = newWork;
+            fiber.child = newWork;//如果他有兄弟节点，那么下次循环将会关联上
         } else {
             preChild.sibling = newWork;
         }
@@ -119,9 +121,10 @@ function generateChildren(fiber,childern) {
 }
 function performWorkUnit(fiber) {
     console.log(fiber);
+    // 是function 说明是 JSX 解析来的
     const fiberTypeIsFunction = typeof fiber.type === "function";
     if(!fiberTypeIsFunction){
-        if (!fiber?.dom) {
+        if (!fiber?.dom) {//存在dom 说明是render传来的初始树
             fiber.dom = createDom(fiber);
             updateProps(fiber);
         }
@@ -129,7 +132,7 @@ function performWorkUnit(fiber) {
     const childern = fiberTypeIsFunction ? [fiber.type(fiber.props)] : fiber.props.childern;
     generateChildren(fiber,childern);
     if (fiber.child) {
-        return fiber.child;
+        return fiber.child; 
     }
     if (fiber.sibling) {
         return fiber.sibling;
