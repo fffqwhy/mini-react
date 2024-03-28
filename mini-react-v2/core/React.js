@@ -109,17 +109,9 @@ function createDom(fiber) {
         ? document.createTextNode("")
         : document.createElement(fiber.type);
 }
+// todo 重构此方法，将一些判断逻辑外置
 function updateProps(fiber, oldProps) {
-    if (!fiber.props && oldProps) return;
-    // Object.keys(fiber?.props).forEach((propsKey) => {
-    //     if (propsKey !== "children") {
-    //         fiber.dom[propsKey] = fiber.props[propsKey];
-    //     }
-    //     if (propsKey.substring(0, 2) === "on") {
-    //         //挂载上方法
-    //         fiber.dom.addEventListener(propsKey.substring(2).toLocaleLowerCase(), fiber?.props[propsKey])
-    //     }
-    // })
+    if (!fiber.props || !oldProps || !fiber.dom) return;
     const newProps = fiber.props;
     if (newProps) {
         // 删除props
