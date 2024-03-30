@@ -8,10 +8,8 @@ function App() {
         count1++;
         ReactMini.update();
     }
-    return (<div>
-        <Test value={count1} onClick={count}/>
-        <button onClick={count}>click:{count1}</button>
-    </div>)
+    // return <Test value={count1} onClick={count}/>
+    return (<ShowBar/> )
 }
 
 export default App;
@@ -19,6 +17,19 @@ export default App;
 function Test({ value, onClick }) {
     return <div onClick={onClick}>test:{value}</div>
 }
-function TestTest() {
-    return <Test value={999} />
+let showBar = false;
+function ShowBar() {
+    const foo = <div>
+        foo
+        <div>foo2</div>
+    </div>;
+    const bar = <p>bar</p>;
+    function handleShowBar(){
+        showBar = !showBar;
+        ReactMini.update();
+    }
+    return <div>
+        {showBar ? bar : foo}
+        <button onClick={handleShowBar}>showbar</button>
+    </div>
 }

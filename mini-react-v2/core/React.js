@@ -4,6 +4,7 @@ const EFFECT_TAG_PLACEMENT = "placement";
 let nextWorkUnit = null;
 let root = null;
 let currentRoot = null;
+let deletions = [];
 /**
  * @description 生成含有nodeValue 的数据结构
  * @param  text 文本 
@@ -56,13 +57,11 @@ function render(ele, container) {
 }
 
 function update() {
-    console.log(currentRoot)
     nextWorkUnit = {
         dom: currentRoot.dom,
         props: currentRoot.props,
         alternate: currentRoot,
     };
-    console.log(nextWorkUnit);
     // 保留一个根节点用来统一提交
     root = nextWorkUnit;
 }
@@ -79,6 +78,8 @@ function workloop(deadline) {
     requestIdleCallback(workloop);
 }
 function commitRoot(fiber) {
+    deletions.forEach(commitDeletion);
+    deletions = [];
     commitFiber(fiber);
     currentRoot = root;
     root = null;
@@ -88,7 +89,7 @@ function commitFiber(fiber) {
     const parentDom = findParentDom(fiber.parent);
 
     if (fiber.effectType === EFFECT_TAG_UPDATE) {
-        updateProps(fiber, fiber.alternate.props);
+        updateProps(fiber.dom,fiber.props, fiber.alternate.props);
     } else if (fiber.effectType === EFFECT_TAG_PLACEMENT) {
         if (fiber.dom) {
             parentDom.append(fiber.dom);
@@ -96,6 +97,9 @@ function commitFiber(fiber) {
     }
     commitFiber(fiber.child);
     commitFiber(fiber.sibling);
+}
+function commitDeletion(deleteFiber){
+    deleteFiber.parent.dom.removeChild(deleteFiber.dom);
 }
 function findParentDom(parentFiber) {
     if (!parentFiber) {
@@ -110,28 +114,27 @@ function createDom(fiber) {
         : document.createElement(fiber.type);
 }
 // todo 重构此方法，将一些判断逻辑外置
-function updateProps(fiber, oldProps) {
-    if (!fiber.props || !oldProps || !fiber.dom) return;
-    const newProps = fiber.props;
-    if (newProps) {
+function updateProps(dom,nextPrps, prevProps) {
+    // if (!fiber.props || !oldProps || !fiber.dom) return;
+    if (nextPrps) {
         // 删除props
-        Object.keys(oldProps).forEach((key) => {
+        Object.keys(prevProps).forEach((key) => {
             if (key !== "children") {
-                if (!(key in newProps)) {
+                if (!(key in nextPrps)) {
                     dom.removeAttribute(key);
                 }
             }
         })
         // 新增props and 更新props
-        Object.keys(newProps).forEach((key) => {
+        Object.keys(nextPrps).forEach((key) => {
             if (key !== "children") {
-                if (newProps[key] !== oldProps[key]) {
+                if (nextPrps[key] !== prevProps[key]) {
                     if (key.substring(0, 2) === "on") {
                         //挂载上方法
-                        fiber.dom.removeEventListener(key.substring(2).toLocaleLowerCase(), oldProps[key]);
-                        fiber.dom.addEventListener(key.substring(2).toLocaleLowerCase(), newProps[key])
+                        dom.removeEventListener(key.substring(2).toLocaleLowerCase(), prevProps[key]);
+                        dom.addEventListener(key.substring(2).toLocaleLowerCase(), nextPrps[key])
                     } else {
-                        fiber.dom[key] = newProps[key];
+                        dom[key] = nextPrps[key];
                     }
                 }
             }
@@ -167,7 +170,10 @@ function generateChildren(fiber, childern) {
                 sibling: null,
                 dom: null,
                 effectType: EFFECT_TAG_PLACEMENT,
-                alternate: oldFiber,
+            }
+            if (oldFiber) {
+                console.log("delete fiber", oldFiber);
+                deletions.push(oldFiber);
             }
         }
         if (oldFiber) {
@@ -189,7 +195,7 @@ function performWorkUnit(fiber) {
     if (!fiberTypeIsFunction) {
         if (!fiber?.dom) {//存在dom 说明是render传来的初始树
             fiber.dom = createDom(fiber);
-            updateProps(fiber, fiber.alternate?.props||{});
+            updateProps(fiber.dom, fiber.props,fiber.alternate?.props || {});
         }
     }
     const childern = fiberTypeIsFunction ? [fiber.type(fiber.props)] : fiber.props?.childern;
