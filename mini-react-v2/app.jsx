@@ -1,35 +1,69 @@
 import ReactMini from './core/React.js';
-
+import './app.css';
 // const App = React.createElement("div", { id: "app", class: "app" }, 'vite-render', "justString");
-let count1 = 10
 function App() {
-    function count() {
-        console.log("123");
-        count1++;
-        ReactMini.update();
-    }
-    // return <Test value={count1} onClick={count}/>
-    return (<ShowBar/> )
+    const [fooVisible,setVisible] =ReactMini.useState(true);
+    return (
+        <div>
+            <button onClick={()=>setVisible((visible)=>!visible)}>删除foo</button>
+            <ShowBar />
+            {fooVisible && <ShowFoo key={1} />}
+        </div>
+    )
 }
 
 export default App;
 
-function Test({ value, onClick }) {
-    return <div onClick={onClick}>test:{value}</div>
-}
-let showBar = false;
 function ShowBar() {
-    const foo = <div>
-        foo
-        <div>foo2</div>
-    </div>;
-    const bar = <p>bar</p>;
-    function handleShowBar(){
-        showBar = !showBar;
-        ReactMini.update();
-    }
+    const [count, setCount] = ReactMini.useState(1);
+    const [count1, setCount1] = ReactMini.useState(23);
+    ReactMini.useEffect(() => {
+        console.log("effectxx")
+    }, [])
+
+    ReactMini.useEffect(() => {
+        console.log("effect", { count }, { count1 })
+    }, [count, count1])
     return <div>
-        {showBar ? bar : foo}
-        <button onClick={handleShowBar}>showbar</button>
+        <p>{count}</p>
+        <button onClick={() => {
+            setCount((o) => {
+                return o + 1;
+            })
+        }}>count</button>
+        <p>{count1} </p>
+        <button
+            className='button'
+            onClick={() => {
+                setCount1(1234)
+            }}>count1</button>
+    </div>
+}
+
+
+function ShowFoo() {
+    const [count, setCount] = ReactMini.useState(1);
+    ReactMini.useEffect(() => {
+        console.log("f00 effectxx");
+        return (() => {
+            console.log("清空副作用 no apply");
+        })
+    }, [])
+
+    ReactMini.useEffect(() => {
+        console.log("foo effect", { count });
+        return (() => {
+            console.log("清空副作用");
+        })
+    }, [count])
+    return <div>
+        <p>{count}</p>
+        <button onClick={() => {
+            setCount((o) => {
+                return o + 1;
+            })
+        }}
+            className='button'
+        > foo count</button>
     </div>
 }
