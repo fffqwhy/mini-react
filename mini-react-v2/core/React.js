@@ -97,11 +97,46 @@ function commitFiber(fiber) {
     commitFiber(fiber.sibling);
 }
 function commitEffect(){
-    
+    function run(fiber){
+        if(!fiber)return;
+        if(!fiber.alternate){
+            fiber?.effectHooks?.forEach((effectHook)=>{
+                effectHook.cleanup = effectHook.callback();
+            })
+        }else{
+            fiber?.effectHooks?.forEach((effectHook,index)=>{
+                const oldEffectHook = fiber.alternate?.effectHooks[index];
+                const needUpdate = oldEffectHook?.deps.some((oldEdp,someIndex)=>{
+                    return  (oldEdp !== effectHook.deps[someIndex])
+                })
+                needUpdate && (effectHook.cleanup =  effectHook?.callback());
+            })
+        }
+        run(fiber.child);
+        run(fiber.sibling);
+    }
+    function runCleanup(fiber){
+        if(!fiber)return;
+        fiber.alternate?.effectHooks?.forEach((hook)=>{
+            if(hook.deps.length){
+                hook.cleanup && hook.cleanup();
+            }
+        })
+    }
+    runCleanup(wipRoot);
+    run(wipRoot);
 }
 function commitDeletion(deleteFiber) {
     if (deleteFiber.dom) {
         const parent = findParentDom(deleteFiber.parent);
+        const effectHooks = deleteFiber.parent?.effectHooks;
+        if(effectHooks){
+            effectHooks.forEach((effect)=>{
+                if(effect.deps.length===0 && effect.cleanup){
+                    effect.cleanup();
+                }
+            })
+        }
         parent.dom.removeChild(deleteFiber.dom);
     } else {
         commitDeletion(deleteFiber.child)
@@ -224,8 +259,9 @@ function performWorkUnit(fiber) {
     return getParentSibling(fiber);
 }
 function updateFunctionComponent(fiber) {
-    stateHooks = []
+    stateHooks = [];
     stateHooksIndex = 0;
+    effectHooks = [];
     wipFiber = fiber;
     console.log(fiber);
     const children = [fiber.type(fiber.props)]
@@ -272,11 +308,19 @@ function useState(init) {
     }
     return [stateHook.state, setState]
 }
-function useEffect(){
-
+let effectHooks;
+function useEffect(callback,deps){
+    const effectHook = {
+        callback,
+        deps,
+        cleanup:undefined
+    }
+    effectHooks.push(effectHook);
+    wipFiber.effectHooks = effectHooks;
 }
 export default {
     createElement,
     render,
-    useState
+    useState,
+    useEffect
 }
