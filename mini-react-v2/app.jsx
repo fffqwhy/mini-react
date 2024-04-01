@@ -1,13 +1,17 @@
 import ReactMini from './core/React.js';
 import './app.css';
+import TodoList from './demo/todolist.jsx'
 // const App = React.createElement("div", { id: "app", class: "app" }, 'vite-render', "justString");
 function App() {
-    const [fooVisible,setVisible] =ReactMini.useState(true);
+    const [fooVisible, setVisible] = ReactMini.useState(true);
     return (
         <div>
-            <button onClick={()=>setVisible((visible)=>!visible)}>删除foo</button>
+            {/* <TodoList/> */}
+            <button onClick={() => setVisible((visible) => !visible)}>删除foo</button>
+            {fooVisible ? <ShowFoo key={1} />:1}
+            <ShowBar/>
             <ShowBar />
-            {fooVisible && <ShowFoo key={1} />}
+            {/* <ShowBar value={2} /> */}
         </div>
     )
 }
@@ -25,6 +29,9 @@ function ShowBar() {
         console.log("effect", { count }, { count1 })
     }, [count, count1])
     return <div>
+        <h2>
+            ShowBar
+        </h2>
         <p>{count}</p>
         <button onClick={() => {
             setCount((o) => {
@@ -57,7 +64,12 @@ function ShowFoo() {
         })
     }, [count])
     return <div>
-        <p>{count}</p>
+        {count === 3
+            ? <div>count is{count}</div>
+            : <div>count is{count}
+                <div>第二个div</div>
+            </div>
+        }
         <button onClick={() => {
             setCount((o) => {
                 return o + 1;

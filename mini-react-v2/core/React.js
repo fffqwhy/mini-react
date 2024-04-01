@@ -4,7 +4,7 @@ const EFFECT_TAG_PLACEMENT = "placement";
 let wipFiber = null;
 let nextWorkUnit = null;
 let wipRoot = null;
-let currentRoot = {};
+let currentRoot = null;
 let deletions = [];
 let stateHooks;
 let stateHooksIndex;
@@ -29,11 +29,13 @@ function createTextNode(text) {
  * @param  {...any} childern 
  */
 function createElement(type, props, ...children) {
+    console.log(children, "cE");
     return {
         type,
         props: {
             ...props,
             children: children.map((child) => {
+                console.log(child);
                 const istextType = typeof child === "string" || typeof child === "number";
                 if (istextType) {
                     return createTextNode(child);
@@ -51,12 +53,12 @@ function createElement(type, props, ...children) {
  * @param {*} container root 
  */
 function render(ele, container) {
-    nextWorkUnit = {
+    wipRoot = {
         dom: container,
         props: { children: [ele] }
     };
     // 保留一个根节点用来统一提交
-    wipRoot = nextWorkUnit;
+    nextWorkUnit = wipRoot;
 }
 
 function workloop(deadline) {
@@ -67,27 +69,30 @@ function workloop(deadline) {
     }
     // 构建结束且有渲染的内容
     if (!nextWorkUnit && wipRoot) {
-        commitRoot(wipRoot.child);
+        commitRoot();
     }
     requestIdleCallback(workloop);
 }
-function commitRoot(fiber) {
+function commitRoot() {
     deletions.forEach(commitDeletion);
     deletions = [];
-    commitFiber(fiber);
+    commitFiber(wipRoot.child);
     commitEffect();
     currentRoot = {
-        stateHook: currentRoot.stateHook,
+        // stateHooks: currentRoot.stateHooks,
         ...wipRoot
     }
     wipRoot = null;
 }
 function commitFiber(fiber) {
     if (!fiber) return;
-    const parent = findParentDom(fiber.parent);
-
+    // const parent = findParentDom(fiber.parent);
+    let parent = fiber.parent;
+    while (!parent.dom) {
+        parent = parent.parent;
+    }
     if (fiber.effectType === EFFECT_TAG_UPDATE) {
-        updateProps(fiber.dom, fiber.props, fiber.alternate.props);
+        updateProps(fiber.dom, fiber.props, fiber.alternate?.props);
     } else if (fiber.effectType === EFFECT_TAG_PLACEMENT) {
         if (fiber.dom) {
             parent.dom.append(fiber.dom);
@@ -96,47 +101,55 @@ function commitFiber(fiber) {
     commitFiber(fiber.child);
     commitFiber(fiber.sibling);
 }
-function commitEffect(){
-    function run(fiber){
-        if(!fiber)return;
-        if(!fiber.alternate){
-            fiber?.effectHooks?.forEach((effectHook)=>{
+function commitEffect() {
+    function run(fiber) {
+        if (!fiber) return;
+        if (!fiber.alternate) {
+            fiber?.effectHooks?.forEach((effectHook) => {
                 effectHook.cleanup = effectHook.callback();
             })
-        }else{
-            fiber?.effectHooks?.forEach((effectHook,index)=>{
-                const oldEffectHook = fiber.alternate?.effectHooks[index];
-                const needUpdate = oldEffectHook?.deps.some((oldEdp,someIndex)=>{
-                    return  (oldEdp !== effectHook.deps[someIndex])
-                })
-                needUpdate && (effectHook.cleanup =  effectHook?.callback());
+        } else {
+            fiber?.effectHooks?.forEach((effectHook, index) => {
+                if (effectHook.deps.length) {
+
+                    const oldEffectHook = fiber.alternate?.effectHooks[index];
+                    const needUpdate = oldEffectHook?.deps.some((oldEdp, someIndex) => {
+                        return (oldEdp !== effectHook.deps[someIndex])
+                    })
+                    needUpdate && (effectHook.cleanup = effectHook?.callback());
+                }
             })
         }
         run(fiber.child);
         run(fiber.sibling);
     }
-    function runCleanup(fiber){
-        if(!fiber)return;
-        fiber.alternate?.effectHooks?.forEach((hook)=>{
-            if(hook.deps.length){
+    function runCleanup(fiber) {
+        if (!fiber) return;
+        fiber.alternate?.effectHooks?.forEach((hook) => {
+            if (hook.deps.length) {
                 hook.cleanup && hook.cleanup();
             }
         })
+        runCleanup(fiber.child);
+        runCleanup(fiber.sibling);
     }
     runCleanup(wipRoot);
     run(wipRoot);
 }
 function commitDeletion(deleteFiber) {
     if (deleteFiber.dom) {
-        const parent = findParentDom(deleteFiber.parent);
-        const effectHooks = deleteFiber.parent?.effectHooks;
-        if(effectHooks){
-            effectHooks.forEach((effect)=>{
-                if(effect.deps.length===0 && effect.cleanup){
-                    effect.cleanup();
-                }
-            })
+        let parent = deleteFiber.parent;
+        while (!parent.dom) {
+            parent = parent.parent;
         }
+        // const effectHooks = deleteFiber.parent?.effectHooks;
+        // if (effectHooks) {
+        //     effectHooks.forEach((effect) => {
+        //         if (effect.deps.length === 0 && effect.cleanup) {
+        //             effect.cleanup();
+        //         }
+        //     })
+        // }
         parent.dom.removeChild(deleteFiber.dom);
     } else {
         commitDeletion(deleteFiber.child)
@@ -151,7 +164,7 @@ function findParentDom(parentFiber) {
 }
 function createDom(fiber) {
 
-    if (fiber.type === undefined ||!fiber.type) {
+    if (fiber.type === undefined || !fiber.type) {
         console.log(fiber.type)
     }
     return fiber.type === TEXT_TYPE
@@ -176,8 +189,20 @@ function updateProps(dom, nextPrps, prevProps) {
                 if (nextPrps[key] !== prevProps[key]) {
                     if (key.substring(0, 2) === "on") {
                         //挂载上方法
-                        dom.removeEventListener(key.substring(2).toLocaleLowerCase(), prevProps[key]);
-                        dom.addEventListener(key.substring(2).toLocaleLowerCase(), nextPrps[key])
+                        const eventName = key.substring(2).toLowerCase();
+                        if (prevProps[key]) {
+                            // 移除旧的事件处理函数
+                            dom.removeEventListener(eventName, prevProps[key]);
+                        }
+                        if (eventName === "change") {
+                            // 对于 "onChange" 事件，设置一个新的处理函数，用于更新状态
+                            dom.addEventListener(eventName, (e) => {
+                                console.log(e);
+                                nextPrps[key](e);
+                            });
+                        } else {
+                            dom.addEventListener(eventName, nextPrps[key])
+                        }
                     } else {
                         dom[key] = nextPrps[key];
                     }
@@ -186,12 +211,12 @@ function updateProps(dom, nextPrps, prevProps) {
         })
     }
 }
-function reconcileChildren(fiber, childern) {
-    const children = childern || fiber.props?.children || [];
+function reconcileChildren(fiber, children) {
+    // const children = childern || fiber.props?.children || [];
     let oldFiber = fiber.alternate?.child;//更新的fiber的alternate 将是上一次的dom树。
     let preChild = null;
     children.forEach((child, index) => {
-        const isSameType = oldFiber && child && oldFiber.type === child.type;
+        const isSameType = oldFiber && oldFiber.type === child.type;
         let newFeber;
         if (isSameType) {
             // todo 更新
@@ -207,14 +232,16 @@ function reconcileChildren(fiber, childern) {
             }
         } else {
             // todo 创建
-            newFeber = {
-                type: child.type,
-                props: child.props,
-                child: null,
-                parent: fiber,
-                sibling: null,
-                dom: null,
-                effectType: EFFECT_TAG_PLACEMENT,
+            if (child) {
+                newFeber = {
+                    type: child.type,
+                    props: child.props,
+                    child: null,
+                    parent: fiber,
+                    sibling: null,
+                    dom: null,
+                    effectType: EFFECT_TAG_PLACEMENT,
+                }
             }
             if (oldFiber) {
                 // console.log("delete fiber", oldFiber, fiber);
@@ -229,61 +256,63 @@ function reconcileChildren(fiber, childern) {
         if (index === 0) {
             fiber.child = newFeber;//如果他有兄弟节点，那么下次循环将会关联上
         } else {
-            preChild.sibling = newFeber;
+            if (preChild) {
+                preChild.sibling = newFeber;
+            }
         }
-        preChild = newFeber;
-        // 如果旧的dom 比新的dom 长，要判断是否还有
-    })
+        if (newFeber) {
+            preChild = newFeber;
+        }
+    });
+    // 如果旧的dom 比新的dom 长，要判断是否还有
+    while (oldFiber) {
+        deletions.push(oldFiber);
+        oldFiber = oldFiber.sibling;
+    }
 }
 function performWorkUnit(fiber) {
     // 是function 说明是 JSX 解析来的
     const fiberTypeIsFunction = typeof fiber.type === "function";
-    if (!fiberTypeIsFunction) {
-        if (!fiber?.dom ) {//存在dom 说明是render传来的初始树
-            fiber.dom = createDom(fiber);
-            updateProps(fiber.dom, fiber.props, fiber.alternate?.props || {});
-        }
-    }
     if (fiberTypeIsFunction) {
         updateFunctionComponent(fiber);
     } else {
-        const childern = fiber.props?.childern;
-        reconcileChildren(fiber, childern);
+        updateHostComponent(fiber)
     }
     if (fiber.child) {
         return fiber.child;
     }
-    if (fiber.sibling) {
-        return fiber.sibling;
+    let nextFiber = fiber;
+    while (nextFiber) {
+        if (nextFiber.sibling) return nextFiber.sibling;
+        nextFiber = nextFiber.parent;
     }
-    return getParentSibling(fiber);
+}
+function updateHostComponent(fiber) {
+    if (!fiber?.dom) {//存在dom 说明是render传来的初始树
+        const dom = (fiber.dom = createDom(fiber));
+        updateProps(dom, fiber.props, {});
+    }
+    const children = fiber.props?.children;
+    reconcileChildren(fiber, children);
 }
 function updateFunctionComponent(fiber) {
     stateHooks = [];
     stateHooksIndex = 0;
     effectHooks = [];
     wipFiber = fiber;
-    console.log(fiber);
+    console.log(fiber, "fiber = wipFiber");
     const children = [fiber.type(fiber.props)]
     reconcileChildren(fiber, children);
-}
-function getParentSibling(fiber) {
-    if (fiber.parent?.sibling) {
-        return fiber.parent?.sibling;
-    }
-    else if (fiber.parent) {
-        return getParentSibling(fiber.parent);
-    }
-    return undefined;
 }
 requestIdleCallback(workloop);
 function useState(init) {
     let currentFiber = wipFiber;
-    const oldHook = currentFiber?.alternate?.stateHooks[stateHooksIndex];
+    const oldHook = currentFiber.alternate?.stateHooks[stateHooksIndex];
     const stateHook = {
         state: oldHook ? oldHook.state : init,
         queue: oldHook ? oldHook.queue : []
     };
+    console.log("***8", init, oldHook, stateHook, currentFiber);
     stateHook.queue.forEach((action) => {
         stateHook.state = action(stateHook.state);
     })
@@ -292,13 +321,13 @@ function useState(init) {
     stateHooks.push(stateHook);
     currentFiber.stateHooks = stateHooks;
     function setState(action) {
-        const eagerState  = typeof action === "function"
-        ? action(stateHook.state)
-        : action;
-        if(eagerState===stateHook.state){return}
+        const eagerState = typeof action === "function"
+            ? action(stateHook.state)
+            : action;
+        if (eagerState === stateHook.state) { return }
         typeof action === "function"
             ? stateHook.queue.push(action)
-            : stateHook.queue.push(()=>action);
+            : stateHook.queue.push(() => action);
         console.log(currentFiber);
         wipRoot = {
             ...currentFiber,
@@ -309,11 +338,11 @@ function useState(init) {
     return [stateHook.state, setState]
 }
 let effectHooks;
-function useEffect(callback,deps){
+function useEffect(callback, deps) {
     const effectHook = {
         callback,
         deps,
-        cleanup:undefined
+        cleanup: undefined
     }
     effectHooks.push(effectHook);
     wipFiber.effectHooks = effectHooks;
